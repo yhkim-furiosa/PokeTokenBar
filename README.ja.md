@@ -169,15 +169,18 @@ swift test                   # ユニットテスト
 ./scripts/build-app.sh       # release → PokeTokenBar.app → /Applications
 ```
 
-### Kubernetes 上のリモート Codex ログ（実験的）
+### Kubernetes 上のリモート使用量（実験的）
 
-Codex が Kubernetes Pod 内で動作する場合、セッションログをローカルへミラーし、Codex のスキャンフォルダとして登録できます。
+Claude Code や Codex が Kubernetes Pod 内で動作する場合、その使用量をローカルのスキャンフォルダへミラーできます。
 
 ```bash
-./scripts/sync-k8s-codex.sh --pod my-codex-pod --configure --watch
+./scripts/sync-k8s-claude.sh --pod my-pod --configure --retain-days 90
+./scripts/sync-k8s-codex.sh  --pod my-pod --configure --retain-days 90
 ```
 
-Pod 名は `--pod` で指定し、既定値は `<ローカルユーザー名>-0` です。そのほかの既定値は現在の kubectl context の namespace、container `workspace`、リモートパス `/root/.codex` です。全オプションと環境変数は `--help` で確認できます。最初の `--configure` 後に PokeTokenBar を再起動してください。初回は rollout 履歴全体をコピーし、以後は最近の変更だけを転送します。ローカルミラーには会話内容を含む Codex JSONL 全体が PokeTokenBar の Application Support フォルダ内に保存されます。
+パーサーが読むレコードだけを **Pod 内で** フィールド単位に組み直します — プロンプト・ツール出力・ファイル内容は Pod の外に出ず、23 MB のセッションが 23 KB になって渡ります。Pod 名は `--pod` で指定し、既定値は `<ローカルユーザー名>-0` です。そのほかの既定値は現在の kubectl context の namespace、container `workspace`、リモートパス `/root/.claude`・`/root/.codex` です。`--retain-days` は古いミラーセッションを削除してミラー容量に上限を設けます（Codex は fork の祖先を経過日数に関係なく残します）。指定しない場合は Pod の全履歴を保持します。Pod に `jq` が必要です。全オプションと環境変数は `--help`、実測値・定期実行・トラブルシューティングは [`docs/reference/k8s-remote-usage.md`](docs/reference/k8s-remote-usage.md) を参照してください。最初の `--configure` 後に PokeTokenBar を再起動してください。
+
+公式の 5 時間／週次の上限はアカウント単位のため、同期しなくても Pod の使用量はすでに含まれています。
 
 ## データソース
 

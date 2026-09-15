@@ -169,15 +169,18 @@ swift test                   # unit tests
 ./scripts/build-app.sh       # release → PokeTokenBar.app → /Applications
 ```
 
-### Kubernetes remote Codex logs (experimental)
+### Kubernetes remote usage (experimental)
 
-If Codex runs inside a Kubernetes pod, mirror its session logs locally and register the mirror as a Codex scan folder:
+If Claude Code or Codex runs inside a Kubernetes pod, mirror its usage into a local scan folder:
 
 ```bash
-./scripts/sync-k8s-codex.sh --pod my-codex-pod --configure --watch
+./scripts/sync-k8s-claude.sh --pod my-pod --configure --retain-days 90
+./scripts/sync-k8s-codex.sh  --pod my-pod --configure --retain-days 90
 ```
 
-The pod can be set with `--pod`; the default is `<local-user>-0`. The other defaults are the current kubectl context's namespace, container `workspace`, and remote path `/root/.codex`. See `--help` for every flag and environment override. Restart PokeTokenBar after the first `--configure`. The first sync copies the complete rollout history; later syncs transfer only recent changes. The local mirror contains the full Codex JSONL, including conversation content, under PokeTokenBar's Application Support directory.
+Only the records the parsers read are rebuilt field by field **inside the pod** — prompts, tool output and file contents never leave it, and a 23 MB session crosses as 23 KB. The pod can be set with `--pod`; the default is `<local-user>-0`. The other defaults are the current kubectl context's namespace, container `workspace`, and remote paths `/root/.claude` and `/root/.codex`. `--retain-days` bounds the mirror by deleting older mirrored sessions (Codex keeps fork ancestors regardless of age); without it the mirror keeps the pod's full history. `jq` must be present in the pod. See `--help` for every flag and environment override, and [`docs/reference/k8s-remote-usage.md`](docs/reference/k8s-remote-usage.md) for the measurements, scheduling and troubleshooting. Restart PokeTokenBar after the first `--configure`.
+
+Official 5-hour/weekly limits are account-level, so pod usage already counts toward them without any syncing.
 
 ## Data sources
 
