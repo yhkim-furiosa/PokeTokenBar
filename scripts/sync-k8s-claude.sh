@@ -82,6 +82,15 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Options after the first positional are not parsed — reject them instead of
+# silently binding `--configure` to $namespace and failing later inside kubectl.
+for arg in "$@"; do
+    case "$arg" in
+        -*) echo "Options must come before the positional pod name: $arg" >&2
+            usage >&2; exit 2 ;;
+    esac
+done
+
 pod="${1:-$pod}"
 namespace="${2:-$namespace}"
 container="${3:-$container}"
@@ -137,6 +146,10 @@ remote_program() {
 set -eu
 home="$1"; since="$2"
 cd "$home" || exit 1
+# A missing scan dir must fail the cycle, not ship an empty manifest — an empty
+# manifest means "the pod deleted everything" to the reconciler.
+[ -d projects ] || { echo "no projects dir under $home" >&2; exit 3; }
+command -v jq >/dev/null 2>&1 || { echo "jq not found in pod" >&2; exit 127; }
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT INT TERM
 mkdir -p "$tmp/projects"
@@ -201,24 +214,34 @@ sync_once() {
     rsync -a "$staging/projects/" "$destination/"
 
     # Reconcile removed/moved sessions so a local stale copy cannot be counted twice.
-    # Paths in the manifest are `projects/...`; strip that prefix to compare.
-    sed 's|^projects/|./|' "$remote_files" | LC_ALL=C sort > "$remote_files.rel"
-    (cd "$destination" && find . -type f -name '*.jsonl' -print | LC_ALL=C sort) \
-        > "$local_files"
-    comm -23 "$local_files" "$remote_files.rel" > "$stale_files"
-    while IFS= read -r stale; do
-        [[ -n "$stale" && "$stale" != /* && "$stale" != *..* ]] || continue
-        rm -f "$destination/$stale"
-    done < "$stale_files"
-    find "$destination" -depth -type d -empty -delete
-    mkdir -p "$destination"
+    # An empty manifest is never treated as "the pod deleted everything" — that would
+    # wipe the mirror irrecoverably on a transient remote hiccup. Skipping the sweep
+    # only risks keeping a stale copy, which is the survivable direction.
+    if [[ ! -s "$remote_files" ]]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') empty remote manifest; skipping stale-file sweep" >&2
+    else
+        # Paths in the manifest are `projects/...`; strip that prefix to compare.
+        sed 's|^projects/|./|' "$remote_files" | LC_ALL=C sort > "$remote_files.rel"
+        (cd "$destination" && find . -type f -name '*.jsonl' -print | LC_ALL=C sort) \
+            > "$local_files"
+        comm -23 "$local_files" "$remote_files.rel" > "$stale_files"
+        while IFS= read -r stale; do
+            [[ -n "$stale" && "$stale" != /* && "$stale" != *..* ]] || continue
+            rm -f "$destination/$stale"
+        done < "$stale_files"
+        find "$destination" -depth -type d -empty -delete
+        mkdir -p "$destination"
+    fi
 
     # Retention: the app only reports today / 5h / week / month, so old mirrored
     # sessions are dead weight. Pruned files are never re-fetched — the mtime
     # filter only ships recently changed sessions — so the mirror stays bounded.
+    # The empty-dir sweep can take `$destination` itself, so it is recreated before
+    # the marker is written (a missing destination would fail the write under set -e).
     if [[ "$retain_days" =~ ^[0-9]+$ ]] && (( retain_days > 0 )); then
         find "$destination" -type f -name '*.jsonl' -mtime +"$retain_days" -delete
         find "$destination" -depth -type d -empty -delete
+        mkdir -p "$destination"
     fi
 
     date +%s > "$marker"
@@ -231,7 +254,7 @@ if [[ "$watch" == true ]]; then
     while true; do
         if sync_once; then
             if [[ "$configure" == true && "$did_configure" == false ]]; then
-                configure_scan_root
+                configure_scan_root || true
                 did_configure=true
             fi
         else
@@ -242,6 +265,6 @@ if [[ "$watch" == true ]]; then
 else
     sync_once
     if [[ "$configure" == true ]]; then
-        configure_scan_root
+        configure_scan_root || true
     fi
 fi

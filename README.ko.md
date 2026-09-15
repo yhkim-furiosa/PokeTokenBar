@@ -178,7 +178,7 @@ Claude Code나 Codex가 Kubernetes Pod 안에서 실행된다면 사용량을 �
 ./scripts/sync-k8s-codex.sh  --pod my-pod --configure --retain-days 90
 ```
 
-파서가 읽는 필드만 **Pod 안에서** 추출합니다 — 프롬프트·툴 출력·파일 내용은 Pod 밖으로 나가지 않고, 수 MB짜리 세션 파일이 수십 KB로 건너옵니다. Pod 이름은 `--pod`로 지정하며 기본값은 `<로컬 사용자명>-0`입니다. 나머지 기본값은 현재 kubectl context의 namespace, container `workspace`, 원격 경로 `/root/.claude`·`/root/.codex`입니다. `--retain-days`는 오래된 미러 세션을 지워 용량에 상한을 둡니다. 지정하지 않으면 Pod의 전체 이력을 계속 보관합니다. 전체 옵션과 환경변수는 `--help`에서, 실측치·주기 실행·문제 해결은 [`docs/reference/k8s-remote-usage.md`](docs/reference/k8s-remote-usage.md)에서 확인할 수 있습니다. 첫 `--configure` 후 PokeTokenBar를 재시작하세요.
+파서가 읽는 레코드만 **Pod 안에서** 필드 단위로 재구성합니다 — 프롬프트·툴 출력·파일 내용은 Pod 밖으로 나가지 않고, 23 MB짜리 세션이 23 KB로 건너옵니다. Pod 이름은 `--pod`로 지정하며 기본값은 `<로컬 사용자명>-0`입니다. 나머지 기본값은 현재 kubectl context의 namespace, container `workspace`, 원격 경로 `/root/.claude`·`/root/.codex`입니다. `--retain-days`는 오래된 미러 세션을 지워 용량에 상한을 둡니다(Codex는 fork 조상을 나이와 무관하게 남깁니다). 지정하지 않으면 Pod의 전체 이력을 계속 보관합니다. Pod에 `jq`가 있어야 합니다. 전체 옵션과 환경변수는 `--help`에서, 실측치·주기 실행·문제 해결은 [`docs/reference/k8s-remote-usage.md`](docs/reference/k8s-remote-usage.md)에서 확인할 수 있습니다. 첫 `--configure` 후 PokeTokenBar를 재시작하세요.
 
 공식 5시간/주간 한도는 계정 단위라 동기화 없이도 Pod 사용량이 이미 포함되어 있습니다.
 

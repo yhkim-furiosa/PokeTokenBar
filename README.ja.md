@@ -178,7 +178,7 @@ Claude Code や Codex が Kubernetes Pod 内で動作する場合、その使用
 ./scripts/sync-k8s-codex.sh  --pod my-pod --configure --retain-days 90
 ```
 
-パーサーが読むフィールドだけを **Pod 内で** 抽出します — プロンプト・ツール出力・ファイル内容は Pod の外に出ず、数 MB のセッションファイルが数十 KB になって渡ります。Pod 名は `--pod` で指定し、既定値は `<ローカルユーザー名>-0` です。そのほかの既定値は現在の kubectl context の namespace、container `workspace`、リモートパス `/root/.claude`・`/root/.codex` です。`--retain-days` は古いミラーセッションを削除してミラー容量に上限を設けます。指定しない場合は Pod の全履歴を保持します。全オプションと環境変数は `--help`、実測値・定期実行・トラブルシューティングは [`docs/reference/k8s-remote-usage.md`](docs/reference/k8s-remote-usage.md) を参照してください。最初の `--configure` 後に PokeTokenBar を再起動してください。
+パーサーが読むレコードだけを **Pod 内で** フィールド単位に組み直します — プロンプト・ツール出力・ファイル内容は Pod の外に出ず、23 MB のセッションが 23 KB になって渡ります。Pod 名は `--pod` で指定し、既定値は `<ローカルユーザー名>-0` です。そのほかの既定値は現在の kubectl context の namespace、container `workspace`、リモートパス `/root/.claude`・`/root/.codex` です。`--retain-days` は古いミラーセッションを削除してミラー容量に上限を設けます（Codex は fork の祖先を経過日数に関係なく残します）。指定しない場合は Pod の全履歴を保持します。Pod に `jq` が必要です。全オプションと環境変数は `--help`、実測値・定期実行・トラブルシューティングは [`docs/reference/k8s-remote-usage.md`](docs/reference/k8s-remote-usage.md) を参照してください。最初の `--configure` 後に PokeTokenBar を再起動してください。
 
 公式の 5 時間／週次の上限はアカウント単位のため、同期しなくても Pod の使用量はすでに含まれています。
 
